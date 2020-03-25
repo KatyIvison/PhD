@@ -1,0 +1,60 @@
+library(hypervolume)
+library(raster)
+library(sp)
+
+#set wd
+setwd("C:/Users/katy_/OneDrive/Desktop")
+##folder where list of individual species are
+mydir = "Temporary R stuff"
+#make list of file names then apply above function to all
+myfiles = list.files(path=mydir, pattern="*.csv", full.names=TRUE)
+myfiles
+
+#extract norway climate points
+nor <- getData("GADM", country = "NOR", level = 1)
+r <- getData("worldclim", res = 5, var = "bio")
+r <- r[[c(5,6,12)]]####this decides to just use bioclim1?
+names(r) <- c("Warmest","Coldest","Prec")
+r <- crop(r, nor)
+r <- rasterToPolygons(r)
+nor <- spTransform(nor, CRSobj = proj4string(r))
+r <- r[nor, ]
+r1<-data.frame(cbind(r$Warmest,r$Coldest,r$Prec))
+names(r1) <- c("Warmest","Coldest","Prec")
+#now we have a data frame of norway info (r1)
+#save as data frame so can access?
+
+#data for world to extract species points from
+world <- getData("worldclim",var="bio",res=10)
+world <- world[[c(5,6,12)]]
+names(world) <- c("Warmest","Coldest","Prec")
+
+for (i in 2:length(myfiles)){
+  data<-read.csv(myfiles[i])
+  data<-data.frame(data)
+  points<-data[,3:2]
+  values<-extract(world,points)
+  df <- cbind.data.frame(coordinates(points),values)
+  #way of doing this in a separate loop? then can do non-internet bits on hamilton
+  df2<-df[,3:5]
+  df2<-na.omit(df2)
+  #save nor values dataframe with name of species
+  #next loop to use on hamilton - open csv of norway data and species data
+  rescale<-rbind(r1,df2)
+  #rescale whole dataframe
+  rs1 <- (rescale$Warmest - mean(rescale$Warmest)) / sd(rescale$Warmest)
+  rs2 <- (rescale$Coldest - mean(rescale$Coldest)) / sd(rescale$Coldest)
+  rs3 <- (rescale$Prec - mean(rescale$Prec)) / sd(rescale$Prec)
+  #bind rescaled columns
+  res<-data.frame(cbind(rs1,rs2,rs3))
+  norhv<-hypervolume(res[1:10416,],method="gaussian")
+  specieshv<-hypervolume(res[10417:nrow(res),],method="gaussian")
+  hv_set <- hypervolume_set(specieshv, norhv, check.memory=FALSE)
+  overlap<-hypervolume_overlap_statistics(hv_set)
+  write.csv(overlap,file=paste((toString(myfiles[i])),"overlap.csv"))
+}
+
+
+
+
+
