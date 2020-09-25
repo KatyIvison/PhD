@@ -1,0 +1,23 @@
+library(hypervolume)
+library(raster)
+library(sp)
+
+#extract norway climate points
+nor <- getData("GADM", country = "NOR", level = 1) ## downloads shapefile for Norway
+r <- getData("worldclim", res = 5, var = "bio") ## downloads bioclimatic variable data for the whole world
+r <- r[[c(10,12,15)]] ## only keeps bioclimatic variable 10, 12 and 15 data
+names(r) <- c("bio10","bio12","bio15")
+r <- crop(r, nor) ## crops Norway shapefile out of world data
+r <- rasterToPolygons(r)
+nor <- spTransform(nor, CRSobj = proj4string(r))
+r <- r[nor, ]
+r1<-data.frame(cbind(r$bio10,r$bio12,r$bio15))
+## rescale data using world means and SD from current, CMIP5 RCP2.5, RCP4 and RCP8.5 data from WorldClim
+######### (N.B. not using CMIP5 data any more but keeping rescale variables constant)
+rs1<- (r$bio10 - 208) / 95
+rs2<- (r$bio12 - (738)) / 711
+rs3<- (r$bio15 - 60) / 34
+norwaydata <- data.frame(cbind(rs1,rs2,rs3))
+names(norwaydata) <- c("bio10","bio12","bio15")
+#### we now have a file containing data for every point in Norway at a 5 minute resolution
+#### We can repeat this with world data for CMIP6 future scenarios to get Norway future data
