@@ -1,0 +1,76 @@
+library(raster)
+library(dynRB)
+
+worldraster<-getData("worldclim",var="bio",res=5)
+worldraster<-worldraster[[c(10,12,15)]]
+##this is bioclimatic variable 10, 12 and 15 data for the whole world at 5 minute resolution
+
+#### open saved and rescaled climate data for Norway now and in the future
+#### Have to assign category for dynRB package
+nor<-read.csv("Norway rescaled climate data.csv")
+nor[1]<-"norway"
+names(nor)<-c("category","bio10","bio12","bio15")
+
+nor26<-read.csv("Norway rescaled CMIP6 mean GCM ssp126 data.csv")
+nor26[1]<-"norway"
+names(nor26)<-c("category","bio10","bio12","bio15")
+
+nor45<-read.csv("Norway rescaled CMIP6 mean GCM ssp245 data.csv")
+nor45[1]<-"norway"
+names(nor45)<-c("category","bio10","bio12","bio15")
+
+nor70<-read.csv("Norway rescaled CMIP6 mean GCM ssp370 data.csv")
+nor70[1]<-"norway"
+names(nor70)<-c("category","bio10","bio12","bio15")
+
+specocc<-read.csv("Species occurrences.csv") ### this csv is a list of file names - each file contains a list of occurrence coordinates for a species
+specocc<-data.frame(specocc[,2])
+names(specocc)<-"species"
+
+
+for (row in 1:nrow(specocc){
+  try({
+    data<-read.csv(toString(specocc[row,]))
+    data<-data.frame(data)
+    points<-data[,4:3] ##these are coordinates
+    ##### extract climate data from world raster for coordinates
+    values<-extract(worldraster,points)
+    df <- cbind.data.frame(coordinates(points),values)
+    df2<-df[,3:5]
+    df2<-na.omit(df2)
+    ##rescale climate data with same variables as used for rescaling Norway climate data
+    rs11 <- (df2$bio10 - 208) / 95
+    rs22 <- (df2$bio12 - (738)) / 711
+    rs33 <- (df2$bio15 - 60) / 34
+    res1<-data.frame(cbind(rs11,rs22,rs33))
+    names(res1)<-c("bio10","bio12","bio15")
+    res1[4]<-"species"
+    res2<-res1[,c(4,1,2,3)]
+    names(res2)<-c("category","bio10","bio12","bio15")
+    ### compare current norway with species niche
+    specnor<-rbind(nor,res2)
+    nowvpa<-dynRB_VPa(specnor)
+    nowov<-data.frame(nowvpa$result)
+    nowov[12]<-"now"
+    ###SSP126
+    specnor26<-rbind(nor26,res2)
+    vpa26<-dynRB_VPa(specnor26)
+    ov26<-data.frame(vpa26$result)
+    ov26[12]<-"26"
+    SSP245
+    specnor45<-rbind(nor45,res2)
+    vpa45<-dynRB_VPa(specnor45)
+    ov45<-data.frame(vpa45$result)
+    ov45[12]<-"45"
+    SSP370
+    specnor70<-rbind(nor70,res2)
+    vpa70<-dynRB_VPa(specnor70)
+    ov70<-data.frame(vpa70$result)
+    ov70[12]<-"70"
+    ### bind all data but just use Norway/Species overlap (as opposed to species/Norway, species/species, Norway/Norway)
+    all<-rbind(nowov[3,],ov26[3,],ov45[3,],ov70[3,])
+    all$species<-paste((toString(specocc[row,])))
+    write.csv(all,file=paste((toString(specocc[row,])),"dynRB.csv"))
+  })
+}
+
