@@ -1,0 +1,22 @@
+library(plyr)
+library(dplyr)
+library(rgbif)
+library(readr)
+
+
+f<-read.csv()##open csv which lists species you want to download data for
+
+f<-data.frame(f)
+
+
+for (row in 1:nrow(f)) {
+  try({
+    obj<-print(occ_data(scientificName= (toString(f[row,])),limit=50000)) ## gets occurrence data for species
+    obj<-data.frame(obj)
+    obj<-subset(obj,select = c("species","decimalLatitude","decimalLongitude","basisOfRecord"))
+    obj<-subset(obj,subset=basisOfRecord%in% c("HUMAN_OBSERVATION","OBSERVATION","LITERATURE","MATERIAL_SAMPLE")) ## only want to keep records of sample in situ
+    obj<-obj[(!(obj$decimalLatitude=="0")&!(obj$decimalLongitude=="0")),] ## get rid of coordinates of 0
+    obj<-na.omit(obj) ## get rid of NA coordinates
+    obj<-unique(obj) ## get rid of duplicates
+  } )
+}
